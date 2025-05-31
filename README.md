@@ -10,8 +10,6 @@ Neutron本质上是一个微服务，只需要将其与其他微服务之间的�
 
 ### 部署视图
 
-各个节点上运行的组件如下：
-
 - 控制节点
 neutron-server + mysql-server + rabbitmq-server
 
@@ -23,7 +21,10 @@ neutron-openvswitch-agent (禁止开启安全组) + openvswitch + conntrack
 neutron-dhcp-agent + dnsmasq-base/dnsmasq-utils
 neutron-l3-agent + keepalived + haproxy + iputils-arping
 
+### 基础组件
+
 可以使用如下命令安装和配置mysql-server/rabbitmq-server
+> openvswitch/conntrack等组件也是需要安装的，此次不再赘述
 
 - mysql-server
 
@@ -51,7 +52,7 @@ rabbitmqctl set_user_tags mqadmin administrator
 rabbitmqctl list_users
 ```
 
-## 代码适配修改
+## 代码适配
 
 ### 下载代码
 
@@ -83,10 +84,12 @@ git apply -p1 /opt/neutron-only/patches/neutron/*
 - 支持noauth
 - 适配Python 3.10和SQLAlchemy 1.4
 - bugfix
-- 便于个人验证的feature
+- 便于个人调试验证的feature
+- 配置文件
 - 辅助脚本
 
 ### Noauth
+
 API的token认证依赖于keystone服务，在仅包含neutron的场景下，需要配置noauth认证策略
 
 - neutron-server适配noauth
@@ -101,9 +104,19 @@ neutronclient出于安全原因，默认禁止noauth认证策略
 - shell适配noauth
 noauth认证场景以admin身份操作资源，因此创建资源接口必须显式指定project_id参数，表示资源的所有者
 
-## Standalone
+### 示例配置文件
+
+配置文件是基于示例配置文件修改得到的
+
+在激活虚拟环境并安装依赖包后，在neutron/neutron-fwaas的根目录下执行如下命令，即可生成示例配置文件
+```bash
+bash tools/generate_config_file_samples.sh
+```
+
+## 安装
 
 * Python虚拟环境
+cd /opt
 python -m venv app
 source app/bin/activate
 
@@ -117,9 +130,6 @@ pip install -r requirements.txt
 安装顺序: neutron-lib, python-neutronclient, neutron, neutron-fwaas
 
 * 配置文件
-- sample
-在neutron/neutron-fwaas的根目录下执行
-bash tools/generate_config_file_samples.sh
 - neutron-server
 /etc/neutron/api-paste.ini
 /etc/neutron/neutron.conf
@@ -129,8 +139,10 @@ bash tools/generate_config_file_samples.sh
 /etc/neutron/neutron_*.conf
 /etc/neutron/plugins/*/*_agent.ini
 
+## 运行
+
 * 初始化操作
-ln -s /opt/src/neutron/etc/neutron /etc/neutron
+ln -s /opt/neutron/etc/neutron /etc/neutron
 mkdir -p /var/log/neutron
 
 export OS_LOCAL_IP=<local-vtep-ip>
