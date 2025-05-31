@@ -10,6 +10,8 @@ Neutron本质上是一个微服务，只需要将其与其他微服务之间的�
 
 ### 部署视图
 
+各个节点上运行的组件如下：
+
 - 控制节点
 neutron-server + mysql-server + rabbitmq-server
 
@@ -21,7 +23,33 @@ neutron-openvswitch-agent (禁止开启安全组) + openvswitch + conntrack
 neutron-dhcp-agent + dnsmasq-base/dnsmasq-utils
 neutron-l3-agent + keepalived + haproxy + iputils-arping
 
-> 在各个节点上安装并配置mysql-server/rabbitmq-server/openvswitch等组件
+可以使用如下命令安装和配置mysql-server/rabbitmq-server
+
+- mysql-server
+
+```bash
+apt install -y mysql-server
+
+mysql
+> CREATE USER dbadmin IDENTIFIED BY '123456';
+> GRANT ALL ON *.* TO dbadmin;
+> CREATE DATABASE neutron;
+> quit
+
+mysql -u dbadmin -p123456 neutron
+```
+
+- rabbitmq-server
+
+```bash
+apt install -y rabbitmq-server
+
+rabbitmqctl add_user mqadmin 123456
+rabbitmqctl set_permissions -p / mqadmin '.*' '.*' '.*'
+rabbitmqctl set_user_tags mqadmin administrator
+
+rabbitmqctl list_users
+```
 
 ## 代码适配修改
 
@@ -65,9 +93,6 @@ API的token认证依赖于keystone服务，在仅包含neutron的场景下，需
 
 在配置文件neutron.conf中指定noauth认证策略
 
-```conf
-auth_strategy = noauth
-```
 request_id适配noauth：配置noauth认证时，API响应头中的request_id与后台日志中的request_id不一致，影响问题定位
 
 - neutronclient适配noauth
@@ -75,10 +100,6 @@ neutronclient出于安全原因，默认禁止noauth认证策略
 
 - shell适配noauth
 noauth认证场景以admin身份操作资源，因此创建资源接口必须显式指定project_id参数，表示资源的所有者
-
-```bash
-export OS_PROJECT_ID=xxx
-```
 
 ## Standalone
 
