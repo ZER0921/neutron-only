@@ -229,8 +229,8 @@ neutron agent-list
 - neutron-appctl: 服务进程运行控制
 - neutron-curl: 针对neutron资源抽象的curl命令封装
 - neutron-ps: neutron相关进程ps
-- neutron-iface: "虚拟机网卡"接入网桥模拟
-- netns-run: 通过id在netns中运行命令
+- neutron-iface: "虚拟机网卡"接入虚拟网桥模拟
+- netns-run: 更便利的netns运行命令
 - ovs-dump-flows: 更简洁的流表查询命令
 
 ### Layer 2 Networking
