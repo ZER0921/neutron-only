@@ -1,0 +1,39 @@
+From 00180d246a7eb073fa4f87b74c1160337dac4a75 Mon Sep 17 00:00:00 2001
+From: zer0921 <zer0921@126.com>
+Date: Sat, 31 May 2025 09:17:52 +0800
+Subject: [PATCH 2/3] fwaas_v2 l2 bugfix
+
+---
+ .../agents/drivers/linux/l2/openvswitch_firewall/firewall.py    | 2 +-
+ .../services/firewall/service_drivers/agents/l2/fwaas_v2.py     | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/neutron_fwaas/services/firewall/service_drivers/agents/drivers/linux/l2/openvswitch_firewall/firewall.py b/neutron_fwaas/services/firewall/service_drivers/agents/drivers/linux/l2/openvswitch_firewall/firewall.py
+index a317f9e..93c992d 100644
+--- a/neutron_fwaas/services/firewall/service_drivers/agents/drivers/linux/l2/openvswitch_firewall/firewall.py
++++ b/neutron_fwaas/services/firewall/service_drivers/agents/drivers/linux/l2/openvswitch_firewall/firewall.py
+@@ -957,7 +957,7 @@ class OVSFirewallDriver(driver_base.FirewallL2DriverBase):
+                     return
+                 ports = range_str.split(':', 1)
+                 rule[key_min] = int(ports[0])
+-                rule['port_range_max'] = (
++                rule[key_max] = (
+                     int(ports[1]) if len(ports) == 2 else int(ports[0]))
+ 
+             add_range('destination_port', 'port_range_min', 'port_range_max')
+diff --git a/neutron_fwaas/services/firewall/service_drivers/agents/l2/fwaas_v2.py b/neutron_fwaas/services/firewall/service_drivers/agents/l2/fwaas_v2.py
+index f9b0394..9fdaa5f 100644
+--- a/neutron_fwaas/services/firewall/service_drivers/agents/l2/fwaas_v2.py
++++ b/neutron_fwaas/services/firewall/service_drivers/agents/l2/fwaas_v2.py
+@@ -248,7 +248,7 @@ class FWaaSV2AgentExtension(l2_extension.L2AgentExtension):
+ 
+         add_ports = self._get_firewall_group_ports(fwg, host)
+         if not add_ports:
+-            status = nl_const.INACTIVE
++            status = self._compute_status(fwg, True, event)
+         else:
+             ret = self._apply_fwg_rules(fwg, add_ports, event)
+ 
+-- 
+2.34.1
+

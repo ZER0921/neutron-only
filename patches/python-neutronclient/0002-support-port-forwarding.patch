@@ -1,0 +1,175 @@
+From 5836ebb6e0fa8f6116875df3f8b4ba7a08119a8a Mon Sep 17 00:00:00 2001
+From: zer0921 <zer0921@126.com>
+Date: Sat, 31 May 2025 09:30:46 +0800
+Subject: [PATCH 2/2] support port-forwarding
+
+---
+ neutronclient/neutron/v2_0/portforwarding.py | 98 ++++++++++++++++++++
+ neutronclient/v2_0/client.py                 | 22 +++++
+ setup.cfg                                    |  5 +
+ 3 files changed, 125 insertions(+)
+ create mode 100644 neutronclient/neutron/v2_0/portforwarding.py
+
+diff --git a/neutronclient/neutron/v2_0/portforwarding.py b/neutronclient/neutron/v2_0/portforwarding.py
+new file mode 100644
+index 0000000..2ab27bc
+--- /dev/null
++++ b/neutronclient/neutron/v2_0/portforwarding.py
+@@ -0,0 +1,98 @@
++# Copyright 2024 OpenStack Foundation.
++# All Rights Reserved
++#
++#    Licensed under the Apache License, Version 2.0 (the "License"); you may
++#    not use this file except in compliance with the License. You may obtain
++#    a copy of the License at
++#
++#         http://www.apache.org/licenses/LICENSE-2.0
++#
++#    Unless required by applicable law or agreed to in writing, software
++#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
++#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
++#    License for the specific language governing permissions and limitations
++#    under the License.
++#
++
++from neutronclient._i18n import _
++from neutronclient.neutron import v2_0 as neutronV20
++
++
++class PortForwardingMixin(object):
++    resource = 'port_forwarding'
++
++    def add_known_arguments(self, parser):
++        parser.add_argument(
++            'floatingip_id',
++            metavar='FLOATINGIP_ID',
++            help=_('Floating IP of the Port Forwarding(s).'))
++
++    def set_extra_attrs(self, parsed_args):
++        self.parent_id = parsed_args.floatingip_id
++
++
++class ListPortForwarding(PortForwardingMixin, neutronV20.ListCommand):
++    """List Port-forwardings."""
++
++    aggregate_columns = 'fixed_ip/proto/inter_port/exter_port'
++    list_columns = ['id', 'internal_port_id', aggregate_columns]
++
++    def extend_list(self, data, parsed_args):
++        for n in data:
++            n[self.aggregate_columns] = '%s/%s/%s/%s' % (
++                n['internal_ip_address'],
++                n['protocol'],
++                n['internal_port'],
++                n['external_port'])
++
++
++class ShowPortForwarding(PortForwardingMixin, neutronV20.ShowCommand):
++    """Show Port Forwarding."""
++
++    allow_names = False
++
++
++class CreatePortForwarding(PortForwardingMixin, neutronV20.CreateCommand):
++    """Create Port Forwarding."""
++
++    def add_known_arguments(self, parser):
++        parser.add_argument(
++            '--internal-port-id',
++            required=True,
++            dest='internal_port_id')
++        parser.add_argument(
++            '--internal-ip-address',
++            required=True,
++            dest='internal_ip_address')
++        parser.add_argument(
++            '--internal-port',
++            required=True,
++            type=int,
++            dest='internal_port')
++        parser.add_argument(
++            '--external-port',
++            required=True,
++            type=int,
++            dest='external_port')
++        parser.add_argument(
++            '--protocol',
++            required=True,
++            dest='protocol')
++        super().add_known_arguments(parser)
++
++    def args2body(self, parsed_args):
++        body = {
++            'internal_port_id': parsed_args.internal_port_id,
++            'internal_ip_address': parsed_args.internal_ip_address,
++            'internal_port': parsed_args.internal_port,
++            'external_port': parsed_args.external_port,
++            'protocol': parsed_args.protocol
++        }
++        neutronV20.update_dict(parsed_args, body, ['tenant_id'])
++        return {self.resource: body}
++
++
++class DeletePortForwarding(PortForwardingMixin, neutronV20.DeleteCommand):
++    """Delete Port Forwarding."""
++
++    allow_names = False
+diff --git a/neutronclient/v2_0/client.py b/neutronclient/v2_0/client.py
+index c338c31..a1472c1 100644
+--- a/neutronclient/v2_0/client.py
++++ b/neutronclient/v2_0/client.py
+@@ -509,6 +509,8 @@ class Client(ClientBase):
+     router_path = "/routers/%s"
+     floatingips_path = "/floatingips"
+     floatingip_path = "/floatingips/%s"
++    port_forwardings_path = "/floatingips/%s/port_forwardings"
++    port_forwarding_path = "/floatingips/%s/port_forwardings/%s"
+     security_groups_path = "/security-groups"
+     security_group_path = "/security-groups/%s"
+     security_group_rules_path = "/security-group-rules"
+@@ -978,6 +980,26 @@ class Client(ClientBase):
+         """Deletes the specified floatingip."""
+         return self.delete(self.floatingip_path % (floatingip))
+ 
++    def show_port_forwarding(self, portforwarding, floatingip, **_params):
++        """Fetches information of a certain portforwarding"""
++        return self.get(self.port_forwarding_path % (floatingip,
++                                                     portforwarding),
++                        params=_params)
++
++    def list_port_forwardings(self, floatingip, retrieve_all=True, **_params):
++        """Fetches a list of all portforwardings for a floatingip."""
++        return self.list('port_forwardings',
++                         self.port_forwardings_path % floatingip, retrieve_all,
++                         **_params)
++
++    def create_port_forwarding(self, floatingip, body=None):
++        """Creates a new portforwarding."""
++        return self.post(self.port_forwardings_path % floatingip, body=body)
++
++    def delete_port_forwarding(self, portforwarding, floatingip):
++        """Deletes the specified portforwarding."""
++        return self.delete(self.port_forwarding_path % (floatingip,
++                                                        portforwarding))
+     def create_security_group(self, body=None):
+         """Creates a new security group."""
+         return self.post(self.security_groups_path, body=body)
+diff --git a/setup.cfg b/setup.cfg
+index fdc5951..082c476 100644
+--- a/setup.cfg
++++ b/setup.cfg
+@@ -227,6 +227,11 @@ neutron.cli.v2 =
+ 	floatingip-associate = neutronclient.neutron.v2_0.floatingip:AssociateFloatingIP
+ 	floatingip-disassociate = neutronclient.neutron.v2_0.floatingip:DisassociateFloatingIP
+ 	
++	port-forwarding-list = neutronclient.neutron.v2_0.portforwarding:ListPortForwarding
++	port-forwarding-show = neutronclient.neutron.v2_0.portforwarding:ShowPortForwarding
++	port-forwarding-create = neutronclient.neutron.v2_0.portforwarding:CreatePortForwarding
++	port-forwarding-delete = neutronclient.neutron.v2_0.portforwarding:DeletePortForwarding
++
+ 	security-group-list = neutronclient.neutron.v2_0.securitygroup:ListSecurityGroup
+ 	security-group-show = neutronclient.neutron.v2_0.securitygroup:ShowSecurityGroup
+ 	security-group-create = neutronclient.neutron.v2_0.securitygroup:CreateSecurityGroup
+-- 
+2.34.1
+

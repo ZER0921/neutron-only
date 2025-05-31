@@ -24,6 +24,10 @@ Neutron本质上是一个微服务，只需要将其与其他微服务之间的�
 
 ## 代码适配修改
 
+```bash
+git apply -p1 /opt/neutron-only/patches/neutron-lib/*
+```
+
 ### Noauth
 API的token认证依赖于keystone服务，在仅包含neutron的场景下，需要配置noauth认证策略
 

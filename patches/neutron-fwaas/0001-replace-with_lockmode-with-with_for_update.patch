@@ -1,0 +1,25 @@
+From bb5b14b83883190bc0797324b0bcbe81b5fc230e Mon Sep 17 00:00:00 2001
+From: zer0921 <zer0921@126.com>
+Date: Sat, 31 May 2025 09:17:42 +0800
+Subject: [PATCH 1/3] replace with_lockmode with with_for_update
+
+---
+ neutron_fwaas/db/firewall/v2/firewall_db_v2.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/neutron_fwaas/db/firewall/v2/firewall_db_v2.py b/neutron_fwaas/db/firewall/v2/firewall_db_v2.py
+index 20977f4..942f712 100644
+--- a/neutron_fwaas/db/firewall/v2/firewall_db_v2.py
++++ b/neutron_fwaas/db/firewall/v2/firewall_db_v2.py
+@@ -356,7 +356,7 @@ class FirewallPluginDb(object):
+                                  firewall_rule_id, position, association_db):
+         with context.session.begin(subtransactions=True):
+             fwp_query = context.session.query(
+-                FirewallPolicy).with_lockmode('update')
++                FirewallPolicy).with_for_update()
+             fwp_db = fwp_query.filter_by(id=firewall_policy_id).one()
+             if position:
+                 # Note that although position numbering starts at 1,
+-- 
+2.34.1
+

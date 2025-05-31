@@ -1,0 +1,42 @@
+From 26c8473d876653db5a1785163241fc7219122f24 Mon Sep 17 00:00:00 2001
+From: zer0921 <zer0921@126.com>
+Date: Sat, 31 May 2025 09:18:01 +0800
+Subject: [PATCH 3/3] fwaas_v2 ip rule bugfix
+
+---
+ .../linux/l2/openvswitch_firewall/firewall.py        | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/neutron_fwaas/services/firewall/service_drivers/agents/drivers/linux/l2/openvswitch_firewall/firewall.py b/neutron_fwaas/services/firewall/service_drivers/agents/drivers/linux/l2/openvswitch_firewall/firewall.py
+index 93c992d..c175d85 100644
+--- a/neutron_fwaas/services/firewall/service_drivers/agents/drivers/linux/l2/openvswitch_firewall/firewall.py
++++ b/neutron_fwaas/services/firewall/service_drivers/agents/drivers/linux/l2/openvswitch_firewall/firewall.py
+@@ -940,7 +940,8 @@ class OVSFirewallDriver(driver_base.FirewallL2DriverBase):
+ 
+             Currently such fields are added:
+             'offset', 'direction', 'ethertype', 'source_port_range_min',
+-            'source_port_range_max', 'port_range_min', 'port_range_max'
++            'source_port_range_max', 'port_range_min', 'port_range_max',
++            'source_ip_prefix', 'dest_ip_prefix'
+             """
+             # XXX NOTE(ivasilevskaya) maybe there's a clever way to do that
+             version_ethertype_map = {lib_const.IP_VERSION_4: lib_const.IPv4,
+@@ -964,6 +965,15 @@ class OVSFirewallDriver(driver_base.FirewallL2DriverBase):
+             add_range('source_port', 'source_port_range_min',
+                       'source_port_range_max')
+ 
++            def add_ip_prefix(old_key, new_key):
++                value = rule.get(old_key)
++                if not value:
++                    return
++                rule[new_key] = value
++
++            add_ip_prefix('source_ip_address', 'source_ip_prefix')
++            add_ip_prefix('destination_ip_address', 'dest_ip_prefix')
++
+         # add direction field
+         offset = len(port.fw_group.ingress_rules) - 1
+         for rule in port.fw_group.ingress_rules:
+-- 
+2.34.1
+

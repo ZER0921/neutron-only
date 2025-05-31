@@ -1,0 +1,55 @@
+From 087e072383a94b32a5fba0346d5454306b68ab29 Mon Sep 17 00:00:00 2001
+From: zer0921 <zer0921@126.com>
+Date: Sat, 31 May 2025 09:30:36 +0800
+Subject: [PATCH 1/2] support noauth
+
+---
+ neutronclient/shell.py | 17 ++++++++++++++---
+ 1 file changed, 14 insertions(+), 3 deletions(-)
+
+diff --git a/neutronclient/shell.py b/neutronclient/shell.py
+index fbc9120..5037e96 100644
+--- a/neutronclient/shell.py
++++ b/neutronclient/shell.py
+@@ -148,6 +148,16 @@ class HelpAction(argparse.Action):
+         sys.exit(0)
+ 
+ 
++class ClientManagerNoauth(clientmanager.ClientManager):
++    def __init__(self, **kwargs):
++        kwargs['url'] = 'http://127.0.0.1:9696'
++        kwargs['auth_strategy'] = 'noauth'
++        kwargs['auth'] = None
++        kwargs['session'] = None
++        kwargs['insecure'] = True
++        super().__init__(**kwargs)
++
++
+ class NeutronShell(app.App):
+ 
+     # verbose logging levels
+@@ -571,7 +581,7 @@ class NeutronShell(app.App):
+         interface = self.options.os_endpoint_type or self.endpoint_type
+         if interface.endswith('URL'):
+             interface = interface[:-3]
+-        self.client_manager = clientmanager.ClientManager(
++        self.client_manager = ClientManagerNoauth(
+             retries=self.options.retries,
+             raise_errors=False,
+             session=auth_session,
+@@ -637,9 +647,10 @@ class NeutronShell(app.App):
+ 
+ 
+ def main(argv=sys.argv[1:]):
++    argv = ['--os-auth-url', 'xxxx'] + sys.argv[1:]
++    if os.environ.get('OS_PROJECT_ID') and len(sys.argv) > 1 and sys.argv[1].endswith('-create'):
++        argv.extend(['--project-id', os.environ.get('OS_PROJECT_ID')])
+     try:
+-        print(_("neutron CLI is deprecated and will be removed "
+-                "in the future. Use openstack CLI instead."), file=sys.stderr)
+         return NeutronShell(NEUTRON_API_VERSION).run(
+             list(map(encodeutils.safe_decode, argv)))
+     except KeyboardInterrupt:
+-- 
+2.34.1
+
