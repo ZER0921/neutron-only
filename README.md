@@ -106,9 +106,9 @@ noauth认证场景以admin身份操作资源，因此创建资源接口必须显
 
 配置文件是基于示例配置文件修改得到的
 
-在激活虚拟环境并安装依赖包后，在neutron/neutron-fwaas的根目录下执行如下命令，即可生成示例配置文件
+在激活虚拟环境并安装依赖包后，在neutron/neutron-fwaas的根目录下执行如下命令，即会在etc目录下生成示例配置文件(*.sample)
 ```bash
-bash tools/generate_config_file_samples.sh
+./tools/generate_config_file_samples.sh
 ```
 
 ## 安装
@@ -158,41 +158,67 @@ export OS_URL=http://127.0.0.1:9696/v2.0
 
 ### 配置文件
 
+```conf
 - neutron-server
 /etc/neutron/api-paste.ini
 /etc/neutron/neutron.conf
 /etc/neutron/plugins/ml2/ml2_conf.ini
+
 - neutron-*-agent
 /etc/neutron/rootwrap.conf
 /etc/neutron/neutron_*.conf
 /etc/neutron/plugins/*/*_agent.ini
+```
 
 ### 启动Server
 
 - 升级数据库
+
+```bash
 neutron-db-manage --config-file /etc/neutron/neutron.conf --subproject neutron upgrade head
 neutron-db-manage --config-file /etc/neutron/neutron.conf --subproject neutron-fwaas upgrade head
+```
+
 - 拉起进程
+
+```bash
 neutron-server --config-file /etc/neutron/neutron.conf --config-file /etc/neutron/plugins/ml2/ml2_conf.ini
+```
 
 ### 启动Agent
 
 - ovs-agent
+
+```bash
+ovs-vsctl add-br br-ext
 neutron-openvswitch-agent --config-file /etc/neutron/neutron_ovs.conf --config-file /etc/neutron/plugins/ml2/openvswitch_agent.ini
+```
+
 - dhcp-agent
+
+```bash
 neutron-dhcp-agent --config-file /etc/neutron/neutron_dhcp.conf --config-file /etc/neutron/plugins/dhcp/dhcp_agent.ini
+```
+
 - l3-agent
+
+```bash
 neutron-l3-agent --config-file /etc/neutron/neutron_l3.conf --config-file /etc/neutron/plugins/l3/l3_agent.ini
+```
 
 ### 使用CLI
-neutron xxx
-- 命令选项会直接转换为REST请求参数
-  --flag-name         -> 'flag_name':true
-  --flag-name=false   -> 'flag_name':'false' -> neutron-server的api框架会自动将string转换成boolean
-  --op-name op-value  -> 'op_name':'op-value'
-- 命令选项中的中划线-和下划线_是等价的
-  例如，--project-id和--project_id是等价的
-- 帮助信息中并未列出全部选项，部分API请求字段可以直接添加为命令选项
-  例如，net-create命令的--router:external选项
 
+```bash
+# 命令选项会直接转换为REST请求参数
+#   --flag-name         -> 'flag_name':true
+#   --flag-name=false   -> 'flag_name':'false' -> neutron-server的api框架会自动将string转换成boolean
+#   --op-name op-value  -> 'op_name':'op-value'
+# 命令选项中的中划线-和下划线_是等价的
+#   例如，--project-id和--project_id是等价的
+# 帮助信息中并未列出全部选项，部分API请求字段可以直接添加为命令选项
+#   例如，net-create命令的--router:external选项
+
+neutron help
+neutron agent-list
+```
 
