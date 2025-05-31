@@ -1,0 +1,92 @@
+From de5913010bfdacc3a48ebac35c839e53a1e95440 Mon Sep 17 00:00:00 2001
+From: zer0921 <zer0921@126.com>
+Date: Sat, 31 May 2025 19:22:01 +0800
+Subject: [PATCH 3/8] adapt rootwrap
+
+---
+ etc/neutron/rootwrap.conf              |  4 ++++
+ etc/neutron/rootwrap.d/l3.filters      |  1 +
+ etc/neutron/rootwrap.d/privsep.filters |  1 +
+ neutron/cmd/rootwrap.py                | 21 +++++++++++++++++++++
+ setup.cfg                              |  2 +-
+ 5 files changed, 28 insertions(+), 1 deletion(-)
+ create mode 100644 etc/neutron/rootwrap.conf
+ create mode 100644 neutron/cmd/rootwrap.py
+
+diff --git a/etc/neutron/rootwrap.conf b/etc/neutron/rootwrap.conf
+new file mode 100644
+index 0000000..47f85ce
+--- /dev/null
++++ b/etc/neutron/rootwrap.conf
+@@ -0,0 +1,4 @@
++[DEFAULT]
++filters_path=/etc/neutron/rootwrap.d
++
++exec_dirs=/sbin,/usr/sbin,/bin,/usr/bin,/usr/local/bin,/usr/local/sbin,/opt/app/bin
+diff --git a/etc/neutron/rootwrap.d/l3.filters b/etc/neutron/rootwrap.d/l3.filters
+index 9985211..bcfeaf6 100644
+--- a/etc/neutron/rootwrap.d/l3.filters
++++ b/etc/neutron/rootwrap.d/l3.filters
+@@ -72,6 +72,7 @@ kill_keepalived_monitor_py3: KillFilter, root, python3, -15, -9
+ kill_keepalived_monitor_py35: KillFilter, root, python3.5, -15, -9
+ kill_keepalived_monitor_py36: KillFilter, root, python3.6, -15, -9
+ kill_keepalived_monitor_py37: KillFilter, root, python3.7, -15, -9
++kill_keepalived_monitor_py310: KillFilter, root, python3.10, -15, -9
+ # For e.g. RHEL8 neutron-keepalived-state-change is run by "system python"
+ # which is /usr/libexec/platform-python3.6 so this should be in filters also.
+ # Path /usr/libexec isn't in PATH by default so it has to be given here as
+diff --git a/etc/neutron/rootwrap.d/privsep.filters b/etc/neutron/rootwrap.d/privsep.filters
+index d9a322a..34faec0 100644
+--- a/etc/neutron/rootwrap.d/privsep.filters
++++ b/etc/neutron/rootwrap.d/privsep.filters
+@@ -22,6 +22,7 @@
+ 
+ # oslo.privsep default neutron context
+ privsep: PathFilter, privsep-helper, root,
++ --config-file, /etc,
+  --config-file, /etc,
+  --privsep_context, neutron.privileged.default,
+  --privsep_sock_path, /
+diff --git a/neutron/cmd/rootwrap.py b/neutron/cmd/rootwrap.py
+new file mode 100644
+index 0000000..4937316
+--- /dev/null
++++ b/neutron/cmd/rootwrap.py
+@@ -0,0 +1,21 @@
++import os
++import sys
++
++from oslo_rootwrap.cmd import main as oslo_rootwrap_main
++from oslo_rootwrap.filters import IpNetnsExecFilter
++
++
++def get_command(self, userargs, exec_dirs=None):
++    if exec_dirs and len(userargs) > 4:
++        sub_exec = userargs[4]
++        for binary_path in exec_dirs:
++            expanded_path = os.path.join(binary_path, sub_exec)
++            if os.access(expanded_path, os.X_OK):
++                userargs[4] = expanded_path
++                break
++    return super(IpNetnsExecFilter, self).get_command(userargs, exec_dirs)
++
++IpNetnsExecFilter.get_command = get_command
++
++def main():
++    sys.exit(oslo_rootwrap_main())
+diff --git a/setup.cfg b/setup.cfg
+index bdb108f..2070ebb 100644
+--- a/setup.cfg
++++ b/setup.cfg
+@@ -50,7 +50,7 @@ console_scripts =
+ 	neutron-pd-notify = neutron.cmd.pd_notify:main
+ 	neutron-server = neutron.cmd.eventlet.server:main
+ 	neutron-rpc-server = neutron.cmd.eventlet.server:main_rpc_eventlet
+-	neutron-rootwrap = oslo_rootwrap.cmd:main
++	neutron-rootwrap = neutron.cmd.rootwrap:main
+ 	neutron-rootwrap-daemon = oslo_rootwrap.cmd:daemon
+ 	neutron-usage-audit = neutron.cmd.eventlet.usage_audit:main
+ 	neutron-metering-agent = neutron.cmd.eventlet.services.metering_agent:main
+-- 
+2.34.1
+

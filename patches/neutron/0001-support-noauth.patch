@@ -1,0 +1,70 @@
+From c3fd7bd509a8aff7d2b65ff53c04869e4aa4e43e Mon Sep 17 00:00:00 2001
+From: zer0921 <zer0921@126.com>
+Date: Sat, 31 May 2025 19:13:24 +0800
+Subject: [PATCH 1/8] support noauth
+
+---
+ etc/{ => neutron}/api-paste.ini |  5 ++++-
+ neutron/auth.py                 | 13 +++++++++++++
+ 2 files changed, 17 insertions(+), 1 deletion(-)
+ rename etc/{ => neutron}/api-paste.ini (91%)
+
+diff --git a/etc/api-paste.ini b/etc/neutron/api-paste.ini
+similarity index 91%
+rename from etc/api-paste.ini
+rename to etc/neutron/api-paste.ini
+index 8e8cf28..39b7139 100644
+--- a/etc/api-paste.ini
++++ b/etc/neutron/api-paste.ini
+@@ -5,7 +5,7 @@ use = egg:Paste#urlmap
+ 
+ [composite:neutronapi_v2_0]
+ use = call:neutron.auth:pipeline_factory
+-noauth = cors http_proxy_to_wsgi request_id catch_errors osprofiler extensions neutronapiapp_v2_0
++noauth = cors http_proxy_to_wsgi request_id catch_errors osprofiler noauthcontext extensions neutronapiapp_v2_0
+ keystone = cors http_proxy_to_wsgi request_id catch_errors osprofiler authtoken keystonecontext extensions neutronapiapp_v2_0
+ 
+ [composite:neutronversions_composite]
+@@ -26,6 +26,9 @@ oslo_config_project = neutron
+ [filter:http_proxy_to_wsgi]
+ paste.filter_factory = oslo_middleware.http_proxy_to_wsgi:HTTPProxyToWSGI.factory
+ 
++[filter:noauthcontext]
++paste.filter_factory = neutron.auth:NeutronNoauthContext.factory
++
+ [filter:keystonecontext]
+ paste.filter_factory = neutron.auth:NeutronKeystoneContext.factory
+ 
+diff --git a/neutron/auth.py b/neutron/auth.py
+index ae5a189..64439cf 100644
+--- a/neutron/auth.py
++++ b/neutron/auth.py
+@@ -16,12 +16,25 @@ from neutron_lib import context
+ from oslo_config import cfg
+ from oslo_log import log as logging
+ from oslo_middleware import base
++from oslo_middleware import request_id
+ import webob.dec
+ import webob.exc
+ 
+ LOG = logging.getLogger(__name__)
+ 
+ 
++class NeutronNoauthContext(base.ConfigurableMiddleware):
++    """Make a request context for noauth."""
++
++    @webob.dec.wsgify
++    def __call__(self, req):
++        req_id = req.environ.get(request_id.ENV_REQUEST_ID)
++        ctx = context.get_admin_context_with_request_id(req_id)
++        req.environ['neutron.context'] = ctx
++
++        return self.application
++
++
+ class NeutronKeystoneContext(base.ConfigurableMiddleware):
+     """Make a request context from keystone headers."""
+ 
+-- 
+2.34.1
+

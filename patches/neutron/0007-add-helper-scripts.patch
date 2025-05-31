@@ -1,0 +1,419 @@
+From 7e60b6767e4d9cae834e864565e179d15df41d4a Mon Sep 17 00:00:00 2001
+From: zer0921 <zer0921@126.com>
+Date: Sat, 31 May 2025 19:35:12 +0800
+Subject: [PATCH 7/8] add helper scripts
+
+---
+ bin/netns-run      |  11 ++++
+ bin/neutron-appctl |  75 ++++++++++++++++++++++
+ bin/neutron-curl   | 151 +++++++++++++++++++++++++++++++++++++++++++++
+ bin/neutron-iface  |  64 +++++++++++++++++++
+ bin/neutron-ps     |   2 +
+ bin/ovs-dump-flows |  38 ++++++++++++
+ setup.cfg          |   7 ++-
+ 7 files changed, 347 insertions(+), 1 deletion(-)
+ create mode 100755 bin/netns-run
+ create mode 100755 bin/neutron-appctl
+ create mode 100755 bin/neutron-curl
+ create mode 100755 bin/neutron-iface
+ create mode 100755 bin/neutron-ps
+ create mode 100755 bin/ovs-dump-flows
+
+diff --git a/bin/netns-run b/bin/netns-run
+new file mode 100755
+index 0000000..2ffdd27
+--- /dev/null
++++ b/bin/netns-run
+@@ -0,0 +1,11 @@
++#!/bin/bash
++
++if [ $# -eq 0 ]
++then
++  ip netns
++else
++  id=$1
++  name=$(ip netns | grep "(id: $id)" | awk '{print $1}')
++  shift
++  ip netns exec $name "$@"
++fi
+diff --git a/bin/neutron-appctl b/bin/neutron-appctl
+new file mode 100755
+index 0000000..a91f926
+--- /dev/null
++++ b/bin/neutron-appctl
+@@ -0,0 +1,75 @@
++#!/bin/bash
++
++if [ $# -eq 0 ]
++then
++  echo "Usage: $0 <start|stop|restart|status> <server|ovs|dhcp|l3>"
++  exit -1
++fi
++
++command=$1
++case $2 in
++  server)
++    unit=neutron-server
++    config='--config-file /etc/neutron/neutron.conf --config-file /etc/neutron/plugins/ml2/ml2_conf.ini'
++    ;;
++  ovs)
++    unit=neutron-openvswitch-agent
++    config='--config-file /etc/neutron/neutron_ovs.conf --config-file /etc/neutron/plugins/ml2/openvswitch_agent.ini'
++    ;;
++  dhcp)
++    unit=neutron-dhcp-agent
++    config='--config-file /etc/neutron/neutron_dhcp.conf --config-file /etc/neutron/plugins/dhcp/dhcp_agent.ini'
++    ;;
++  l3)
++    unit=neutron-l3-agent
++    config='--config-file /etc/neutron/neutron_l3.conf --config-file /etc/neutron/plugins/l3/l3_agent.ini'
++    ;;
++  *)
++    if [ "$command" = stop -a "$2" = all ]
++    then
++      unit=neutron
++    else
++      echo "Unknown unit: $2"
++      exit -1
++    fi
++    ;;
++esac
++
++function get_pids() {
++  echo $(ps -ef | grep -v -E 'grep|appctl' | grep "$unit" | awk '{print $2}')
++}
++
++function start() {
++  $unit $config &>/dev/null &
++}
++
++function stop() {
++  for pid in $(get_pids)
++  do
++    kill -9 $pid
++  done
++}
++
++function restart() {
++  stop
++  start
++}
++
++function status() {
++  pids=$(get_pids)
++  if [ -n "$pids" ]
++  then
++    echo "$unit: active ($pids)"
++  else
++    echo "$unit: inactive"
++  fi
++}
++
++if [ $command = start -o $command = stop -o $command = restart -o $command = status ]
++then
++  $command
++  exit 0
++else
++  echo "Unknown command: $command"
++  exit -1
++fi
+diff --git a/bin/neutron-curl b/bin/neutron-curl
+new file mode 100755
+index 0000000..14f2699
+--- /dev/null
++++ b/bin/neutron-curl
+@@ -0,0 +1,151 @@
++#!/bin/bash
++
++function help() {
++  echo "Usage: $0 -X method -r resource [-i resource_id] [-p parent_id] [-A action] [-d data] [-f filter]"
++  exit $1
++}
++
++function exists_in_list() {
++  local value="$1"
++  local list="${@:2}"
++  local delimiter=' '
++  [[ "$list" =~ ($delimiter|^)$value($delimiter|$) ]]
++}
++
++function valid_uuid() {
++  [[ "$1" =~ [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12} ]]
++}
++
++function check_method() {
++  local method_list="GET POST PUT DELETE"
++  exists_in_list "$1" $method_list
++}
++
++function check_resource() {
++  local resource_list="network subnet port router floatingip port_forwarding firewall_group firewall_policy firewall_rule"
++  exists_in_list "$1" $resource_list
++}
++
++function check_resource_id() {
++  local resource_id=$1
++  local method=$2
++  if [ $method = PUT -o $method = DELETE ]
++  then
++    valid_uuid $resource_id
++  elif [ $method = POST ]
++  then
++    [ -z "$resource_id" ]
++  else
++    [ -z "$resource_id" ] || valid_uuid $resource_id
++  fi
++}
++
++function check_parent_id() {
++  local parent_id=$1
++  local resource=$3
++  if [ $resource = port_forwarding ]
++  then
++    valid_uuid $1
++  else
++    [ -z "$1" ]
++  fi
++}
++
++function check_action() {
++  local action=$1
++  local method=$2
++  local resource=$3
++
++  [ -z "$action" ] && return 0
++  [ "$method" != PUT ] && return 1
++
++  if [ "$resource" = router ]
++  then
++    [[ "$action" = add_router_interface || "$action" = remove_router_interface ]]
++    return $?
++  elif [ "$resource" = firewall_policy ]
++  then
++    [[ "$action" = insert_rule || "$action" = remove_rule ]]
++    return $?
++  else
++    return 1
++  fi
++}
++
++function add_project_id() {
++  echo "$@" | sed -E 's/(: *\{)/\1 "tenant_id":"'$OS_PROJECT_ID'", /'
++}
++
++# parse args
++while getopts 'X:r:i:p:A:d:f:h' opt
++do
++  case $opt in
++    X) method=$OPTARG
++      ;;
++    r) resource=$OPTARG
++      ;;
++    i) resource_id=$OPTARG
++      ;;
++    p) parent_id=$OPTARG
++      ;;
++    A) action=$OPTARG
++      ;;
++    d) data=$OPTARG
++      ;;
++    f) filter=$OPTARG
++      ;;
++    h|?) [ $opt = 'h' ]; help $?
++      ;;
++  esac
++done
++
++# check args
++for arg in method resource resource_id parent_id action
++do
++  check_$arg "${!arg}" "$method" "$resource"
++  if [ $? -ne 0 ]
++  then
++    echo "$arg (${!arg}) is invalid"
++    help 1
++  fi
++done
++
++# construct url
++if [ -z "$OS_URL" ]
++then
++  echo "OS_URL is undefined!"
++  exit 1
++fi
++url=$OS_URL
++
++case $resource in
++  network|subnet|port|router|floatingip) resource_url=${resource}s
++    ;;
++  port_forwarding) resource_url=floatingips/$parent_id/port_forwardings
++    ;;
++  firewall_group) resource_url=fwaas/firewall_groups
++    ;;
++  firewall_policy) resource_url=fwaas/firewall_policies
++    ;;
++  firewall_rule) resource_url=fwaas/firewall_rules
++    ;;
++esac
++
++url=$url/$resource_url
++[ -n "$resource_id" ] && url=$url/$resource_id
++[ -n "$action" ] && url=$url/$action
++
++# execute curl
++if [ $method = GET ]
++then
++  curl -is -X $method $url?$filter | t1json
++elif [ $method = DELETE ]
++then
++  curl -is -X $method $url
++elif [ $method = POST ]
++then
++  data=$(add_project_id "$data")
++  curl -is -X $method -d "$data" $url | t1json
++else
++  curl -is -X $method -d "$data" $url | t1json
++fi
+diff --git a/bin/neutron-iface b/bin/neutron-iface
+new file mode 100755
+index 0000000..8d9eb27
+--- /dev/null
++++ b/bin/neutron-iface
+@@ -0,0 +1,64 @@
++#!/bin/bash
++
++function add_iface() {
++  if [ $# -lt 3 ]
++  then
++    echo "Invalid: add IFACE PORT_ID PORT_MAC [DHCP]"
++    exit -1
++  fi
++
++  IFACE=$1
++  PORT_ID=$2
++  PORT_MAC=$3
++  DHCP=$4
++
++  TAP_NAME=tap${PORT_ID:0:11}
++  ETH_NAME=eth0
++  ip netns add $IFACE
++  ip link add $TAP_NAME type veth peer name $ETH_NAME netns $IFACE
++  ip link set $TAP_NAME up
++  ip -n $IFACE link set $ETH_NAME up address $PORT_MAC
++  ovs-vsctl --may-exist add-port br-int $TAP_NAME -- set interface $TAP_NAME external_ids:iface-id=$PORT_ID external_ids:iface-status=active external_ids:attached-mac=$PORT_MAC
++  if [ -n "$DHCP" ]
++  then
++    while [ $(ovs-vsctl get port $TAP_NAME tag) == '[]' ]
++    do
++      echo "wait tag for $TAP_NAME"
++      sleep 3
++    done
++    ip netns exec $IFACE dhclient -v -lf /var/lib/dhcp/dhclient-$TAP_NAME.leases -pf /var/run/dhclient-$TAP_NAME.pid $ETH_NAME
++  fi
++}
++
++function del_iface() {
++  if [ $# -lt 1 ]
++  then
++    echo 'Invalid: del IFACE'
++    exit -1
++  fi
++
++  IFACE=$1
++
++  ETH_NAME=$(ip -o -n $IFACE link show | grep -v -w lo | awk -F: '{print $2}' | sed 's/@.*$//')
++  peer_ifindex=$(ip netns exec $IFACE ethtool -S $ETH_NAME | grep peer_ifindex | awk '{print $NF}')
++  TAP_NAME=$(ip -o link show | grep -E "^$peer_ifindex:" | awk -F: '{print $2}' | sed 's/@.*$//' | tr -d ' ')
++  if [ -f /var/run/dhclient-$TAP_NAME.pid ]
++  then
++    ip netns exec $IFACE dhclient -r -lf /var/lib/dhcp/dhclient-$TAP_NAME.leases -pf /var/run/dhclient-$TAP_NAME.pid $ETH_NAME
++  fi
++  ovs-vsctl del-port br-int $TAP_NAME
++  ip link del $TAP_NAME
++  ip netns del $IFACE
++}
++
++OP=$1
++if [ "$OP" = add -o "$OP" = del ]
++then
++  shift
++  ${OP}_iface "$@"
++else
++  echo "Usage: $0"
++  echo "  add IFACE PORT_ID PORT_MAC [DHCP]"
++  echo "  del IFACE"
++  exit -1
++fi
+diff --git a/bin/neutron-ps b/bin/neutron-ps
+new file mode 100755
+index 0000000..1c4b319
+--- /dev/null
++++ b/bin/neutron-ps
+@@ -0,0 +1,2 @@
++#!/bin/bash
++ps -ef | grep -v grep | grep -i --color=always neutron
+diff --git a/bin/ovs-dump-flows b/bin/ovs-dump-flows
+new file mode 100755
+index 0000000..92cafea
+--- /dev/null
++++ b/bin/ovs-dump-flows
+@@ -0,0 +1,38 @@
++#!/bin/bash
++
++function help() {
++  echo "Usage: $0 [-n] [-d] <bridge>"
++  exit $1
++}
++
++while true
++do
++  while getopts 'ndh' opt
++  do
++    case $opt in
++      n) OFCTL_OPT="$OFCTL_OPT --name"
++        ;;
++      d) SORT_OPT="$SORT_OPT --debug"
++        ;;
++      h|?) [ $opt = 'h' ]; help $?
++        ;;
++    esac
++  done
++
++  if [ $OPTIND -le $# ]
++  then
++    BRIDGE=${!OPTIND}
++    shift $OPTIND && OPTIND=1
++  else
++    break
++  fi
++done
++
++if [ -z "$BRIDGE" ]
++then
++  help 1
++fi
++
++ovs-ofctl dump-flows --no-stats $OFCTL_OPT $BRIDGE |
++  sed -E 's/ cookie=0x[[:xdigit:]]+, //; s/^ //; /^table=/! s/^/table=0 /; s/(table=[0-9]*),/\1/; s/(priority=[0-9]*),/\1 /' |
++  sort $SORT_OPT -k1.7b,1n -k2.10b,2nr
+diff --git a/setup.cfg b/setup.cfg
+index c43b4b8..0534fb2 100644
+--- a/setup.cfg
++++ b/setup.cfg
+@@ -23,7 +23,12 @@ classifier =
+ packages = 
+ 	neutron
+ scripts = 
+-	bin/neutron-rootwrap-xen-dom0
++	bin/neutron-appctl
++	bin/neutron-curl
++	bin/neutron-ps
++	bin/neutron-iface
++	bin/netns-run
++	bin/ovs-dump-flows
+ 
+ [entry_points]
+ wsgi_scripts = 
+-- 
+2.34.1
+

@@ -1,0 +1,254 @@
+From 9e5983d3c553962aaa01f6b8b65756c72c74db12 Mon Sep 17 00:00:00 2001
+From: zer0921 <zer0921@126.com>
+Date: Sat, 31 May 2025 19:29:32 +0800
+Subject: [PATCH 6/8] add configuration files
+
+---
+ etc/neutron/dnsmasq.conf                      |  1 +
+ etc/neutron/neutron.conf                      | 49 +++++++++++++++++++
+ etc/neutron/neutron_dhcp.conf                 | 20 ++++++++
+ etc/neutron/neutron_l3.conf                   | 20 ++++++++
+ etc/neutron/neutron_ovs.conf                  | 20 ++++++++
+ etc/neutron/plugins/dhcp/dhcp_agent.ini       |  3 ++
+ etc/neutron/plugins/l3/l3_agent.ini           | 11 +++++
+ etc/neutron/plugins/ml2/ml2_conf.ini          | 14 ++++++
+ etc/neutron/plugins/ml2/openvswitch_agent.ini | 16 ++++++
+ setup.cfg                                     |  5 --
+ 10 files changed, 154 insertions(+), 5 deletions(-)
+ create mode 100644 etc/neutron/dnsmasq.conf
+ create mode 100644 etc/neutron/neutron.conf
+ create mode 100644 etc/neutron/neutron_dhcp.conf
+ create mode 100644 etc/neutron/neutron_l3.conf
+ create mode 100644 etc/neutron/neutron_ovs.conf
+ create mode 100644 etc/neutron/plugins/dhcp/dhcp_agent.ini
+ create mode 100644 etc/neutron/plugins/l3/l3_agent.ini
+ create mode 100644 etc/neutron/plugins/ml2/ml2_conf.ini
+ create mode 100644 etc/neutron/plugins/ml2/openvswitch_agent.ini
+
+diff --git a/etc/neutron/dnsmasq.conf b/etc/neutron/dnsmasq.conf
+new file mode 100644
+index 0000000..5202c67
+--- /dev/null
++++ b/etc/neutron/dnsmasq.conf
+@@ -0,0 +1 @@
++user=root
+diff --git a/etc/neutron/neutron.conf b/etc/neutron/neutron.conf
+new file mode 100644
+index 0000000..0bd8b4f
+--- /dev/null
++++ b/etc/neutron/neutron.conf
+@@ -0,0 +1,49 @@
++[DEFAULT]
++debug = false
++use_stderr = true
++log_file = /var/log/neutron/neutron-server.log
++logging_context_format_string = %(asctime)s.%(msecs)03d %(process)d %(levelname)s %(name)s [%(request_id)s] %(instance)s%(message)s
++logging_default_format_string = %(asctime)s.%(msecs)03d %(process)d %(levelname)s %(name)s [-] %(instance)s%(message)s
++logging_debug_format_suffix = %(funcName)s %(pathname)s:%(lineno)d
++logging_exception_prefix = %(asctime)s.%(msecs)03d %(process)d ERROR %(name)s %(instance)s
++default_log_levels = 
++
++auth_strategy = noauth
++core_plugin = ml2
++service_plugins = router,port_forwarding,firewall_v2
++allow_overlapping_ips = true
++notify_nova_on_port_status_changes = false
++notify_nova_on_port_data_changes = false
++api_workers = 0
++rpc_workers = 0
++rpc_state_report_workers = 0
++wsgi_default_pool_size = 100
++transport_url = rabbit://mqadmin:123456@ctrlhost:5672//
++
++router_distributed = false
++l3_ha = false
++
++[quotas]
++quota_network = -1
++quota_subnet = -1
++quota_port = -1
++quota_router = -1
++quota_floatingip = -1
++quota_security_group = -1
++quota_security_group_rule = -1
++
++[service_providers]
++service_provider = FIREWALL_V2:fwaas_db:neutron_fwaas.services.firewall.service_drivers.agents.agents.FirewallAgentDriver:default
++
++[database]
++connection = mysql+pymysql://dbadmin:123456@ctrlhost:3306/neutron
++connection_debug = 0
++
++[oslo_messaging_notifications]
++driver = noop
++
++[oslo_messaging_rabbit]
++ssl = false
++
++[oslo_concurrency]
++lock_path = /var/lib/neutron/lock
+diff --git a/etc/neutron/neutron_dhcp.conf b/etc/neutron/neutron_dhcp.conf
+new file mode 100644
+index 0000000..88cdc26
+--- /dev/null
++++ b/etc/neutron/neutron_dhcp.conf
+@@ -0,0 +1,20 @@
++[DEFAULT]
++debug = false
++use_stderr = true
++log_file = /var/log/neutron/neutron-dhcp-agent.log
++logging_context_format_string = %(asctime)s.%(msecs)03d %(process)d %(levelname)s %(name)s %(instance)s%(message)s
++logging_default_format_string = %(asctime)s.%(msecs)03d %(process)d %(levelname)s %(name)s %(instance)s%(message)s
++logging_debug_format_suffix = %(funcName)s %(pathname)s:%(lineno)d
++logging_exception_prefix = %(asctime)s.%(msecs)03d %(process)d ERROR %(name)s %(instance)s
++default_log_levels =
++
++transport_url = rabbit://mqadmin:123456@ctrlhost:5672//
++
++[agent]
++root_helper = sudo /opt/app/bin/neutron-rootwrap /etc/neutron/rootwrap.conf
++
++[oslo_messaging_rabbit]
++ssl = false
++
++[oslo_concurrency]
++lock_path = /var/lib/neutron/lock
+diff --git a/etc/neutron/neutron_l3.conf b/etc/neutron/neutron_l3.conf
+new file mode 100644
+index 0000000..e5010f6
+--- /dev/null
++++ b/etc/neutron/neutron_l3.conf
+@@ -0,0 +1,20 @@
++[DEFAULT]
++debug = false
++use_stderr = true
++log_file = /var/log/neutron/neutron-l3-agent.log
++logging_context_format_string = %(asctime)s.%(msecs)03d %(process)d %(levelname)s %(name)s %(instance)s%(message)s
++logging_default_format_string = %(asctime)s.%(msecs)03d %(process)d %(levelname)s %(name)s %(instance)s%(message)s
++logging_debug_format_suffix = %(funcName)s %(pathname)s:%(lineno)d
++logging_exception_prefix = %(asctime)s.%(msecs)03d %(process)d ERROR %(name)s %(instance)s
++default_log_levels =
++
++transport_url = rabbit://mqadmin:123456@ctrlhost:5672//
++
++[agent]
++root_helper = sudo /opt/app/bin/neutron-rootwrap /etc/neutron/rootwrap.conf
++
++[oslo_messaging_rabbit]
++ssl = false
++
++[oslo_concurrency]
++lock_path = /var/lib/neutron/lock
+diff --git a/etc/neutron/neutron_ovs.conf b/etc/neutron/neutron_ovs.conf
+new file mode 100644
+index 0000000..2a7de5f
+--- /dev/null
++++ b/etc/neutron/neutron_ovs.conf
+@@ -0,0 +1,20 @@
++[DEFAULT]
++debug = false
++use_stderr = true
++log_file = /var/log/neutron/neutron-openvswitch-agent.log
++logging_context_format_string = %(asctime)s.%(msecs)03d %(process)d %(levelname)s %(name)s %(instance)s%(message)s
++logging_default_format_string = %(asctime)s.%(msecs)03d %(process)d %(levelname)s %(name)s %(instance)s%(message)s
++logging_debug_format_suffix = %(funcName)s %(pathname)s:%(lineno)d
++logging_exception_prefix = %(asctime)s.%(msecs)03d %(process)d ERROR %(name)s %(instance)s
++default_log_levels =
++
++transport_url = rabbit://mqadmin:123456@ctrlhost:5672//
++
++[agent]
++root_helper = sudo /opt/app/bin/neutron-rootwrap /etc/neutron/rootwrap.conf
++
++[oslo_messaging_rabbit]
++ssl = false
++
++[oslo_concurrency]
++lock_path = /var/lib/neutron/lock
+diff --git a/etc/neutron/plugins/dhcp/dhcp_agent.ini b/etc/neutron/plugins/dhcp/dhcp_agent.ini
+new file mode 100644
+index 0000000..cd5db11
+--- /dev/null
++++ b/etc/neutron/plugins/dhcp/dhcp_agent.ini
+@@ -0,0 +1,3 @@
++[DEFAULT]
++interface_driver = openvswitch
++dnsmasq_config_file = /etc/neutron/dnsmasq.conf
+diff --git a/etc/neutron/plugins/l3/l3_agent.ini b/etc/neutron/plugins/l3/l3_agent.ini
+new file mode 100644
+index 0000000..42c1856
+--- /dev/null
++++ b/etc/neutron/plugins/l3/l3_agent.ini
+@@ -0,0 +1,11 @@
++[DEFAULT]
++interface_driver = openvswitch
++agent_mode = legacy
++#agent_mode = dvr
++
++[agent]
++extensions = port_forwarding,fwaas_v2
++
++[fwaas]
++driver = iptables_v2
++enabled = true
+diff --git a/etc/neutron/plugins/ml2/ml2_conf.ini b/etc/neutron/plugins/ml2/ml2_conf.ini
+new file mode 100644
+index 0000000..5509ac0
+--- /dev/null
++++ b/etc/neutron/plugins/ml2/ml2_conf.ini
+@@ -0,0 +1,14 @@
++[ml2]
++type_drivers = vlan,vxlan
++tenant_network_types = vxlan
++mechanism_drivers = openvswitch,l2population
++extension_drivers = port_security
++
++[ml2_type_vlan]
++network_vlan_ranges = extnet1:100:110
++
++[ml2_type_vxlan]
++vni_ranges = 1000:1100
++
++[securitygroup]
++firewall_driver = noop
+diff --git a/etc/neutron/plugins/ml2/openvswitch_agent.ini b/etc/neutron/plugins/ml2/openvswitch_agent.ini
+new file mode 100644
+index 0000000..3194234
+--- /dev/null
++++ b/etc/neutron/plugins/ml2/openvswitch_agent.ini
+@@ -0,0 +1,16 @@
++[agent]
++tunnel_types = vxlan
++l2_population = true
++arp_responder = true
++extensions = fwaas_v2
++enable_distributed_routing = false
++
++[ovs]
++bridge_mappings = extnet1:br-ext
++#local_ip = -
++
++[securitygroup]
++firewall_driver = noop
++
++[fwaas]
++firewall_l2_driver = ovs
+diff --git a/setup.cfg b/setup.cfg
+index 2070ebb..c43b4b8 100644
+--- a/setup.cfg
++++ b/setup.cfg
+@@ -22,11 +22,6 @@ classifier =
+ [files]
+ packages = 
+ 	neutron
+-data_files = 
+-	etc/neutron =
+-	etc/api-paste.ini
+-	etc/rootwrap.conf
+-	etc/neutron/rootwrap.d = etc/neutron/rootwrap.d/*
+ scripts = 
+ 	bin/neutron-rootwrap-xen-dom0
+ 
+-- 
+2.34.1
+

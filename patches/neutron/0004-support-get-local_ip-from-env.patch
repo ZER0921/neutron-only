@@ -1,0 +1,33 @@
+From bcd9fe4799be86db48900a4f384c81e3a08d8bd4 Mon Sep 17 00:00:00 2001
+From: zer0921 <zer0921@126.com>
+Date: Sat, 31 May 2025 19:22:47 +0800
+Subject: [PATCH 4/8] support get local_ip from env
+
+---
+ neutron/conf/plugins/ml2/drivers/ovs_conf.py | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/neutron/conf/plugins/ml2/drivers/ovs_conf.py b/neutron/conf/plugins/ml2/drivers/ovs_conf.py
+index 952ad1e..107f0f9 100644
+--- a/neutron/conf/plugins/ml2/drivers/ovs_conf.py
++++ b/neutron/conf/plugins/ml2/drivers/ovs_conf.py
+@@ -12,6 +12,8 @@
+ #    License for the specific language governing permissions and limitations
+ #    under the License.
+ 
++import os
++
+ from neutron_lib import constants as n_const
+ from oslo_config import cfg
+ 
+@@ -41,6 +43,7 @@ ovs_opts = [
+                help=_("Peer patch port in tunnel bridge for integration "
+                       "bridge.")),
+     cfg.IPOpt('local_ip',
++              default=os.environ.get('OS_LOCAL_IP'),
+               help=_("IP address of local overlay (tunnel) network endpoint. "
+                      "Use either an IPv4 or IPv6 address that resides on one "
+                      "of the host network interfaces. The IP version of this "
+-- 
+2.34.1
+
