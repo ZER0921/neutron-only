@@ -113,7 +113,9 @@ bash tools/generate_config_file_samples.sh
 
 ## 安装
 
-* Python虚拟环境
+### Python虚拟环境
+
+基于Python虚拟环境进行开发，避免影响系统环境
 
 ```bash
 cd /opt
@@ -121,16 +123,41 @@ python -m venv app
 source app/bin/activate
 ```
 
-* 依赖包
-pip install -r requirements.txt
-> 安装neutron和neutron-fwaas仓中的依赖即可
-> SQLAlchemy必须使用1.4.x
-> 需要额外安装数据库driver，例如pymysql
+### 安装依赖包
 
-* Neutron组件
+neutron组件版本和依赖包版本之间有配套关系，因此需要固定版本号
+- 安装neutron和neutron-fwaas组件的依赖即可
+- 需要额外安装数据库driver，例如pymysql
+
+```bash
+pip install -r /opt/neutron-only/patches/requirements.txt
+```
+
+### 安装Neutron组件
+
 安装顺序: neutron-lib, python-neutronclient, neutron, neutron-fwaas
+<br>
+以neutron-lib为例
+```bash
+cd /opt/neutron-lib
+python setup.py install
+```
 
-* 配置文件
+### 初始化操作
+
+```bash
+ln -s /opt/neutron/etc/neutron /etc/neutron
+mkdir -p /var/log/neutron
+
+export OS_LOCAL_IP=<local-vtep-ip>
+export OS_PROJECT_ID=<test-project-id>
+export OS_URL=http://127.0.0.1:9696/v2.0
+```
+
+## 运行
+
+### 配置文件
+
 - neutron-server
 /etc/neutron/api-paste.ini
 /etc/neutron/neutron.conf
@@ -140,24 +167,16 @@ pip install -r requirements.txt
 /etc/neutron/neutron_*.conf
 /etc/neutron/plugins/*/*_agent.ini
 
-## 运行
+### 启动Server
 
-* 初始化操作
-ln -s /opt/neutron/etc/neutron /etc/neutron
-mkdir -p /var/log/neutron
-
-export OS_LOCAL_IP=<local-vtep-ip>
-export OS_PROJECT_ID=<test-project-id>
-export OS_URL=http://127.0.0.1:9696/v2.0
-
-* 启动Server
 - 升级数据库
 neutron-db-manage --config-file /etc/neutron/neutron.conf --subproject neutron upgrade head
 neutron-db-manage --config-file /etc/neutron/neutron.conf --subproject neutron-fwaas upgrade head
 - 拉起进程
 neutron-server --config-file /etc/neutron/neutron.conf --config-file /etc/neutron/plugins/ml2/ml2_conf.ini
 
-* 启动Agent
+### 启动Agent
+
 - ovs-agent
 neutron-openvswitch-agent --config-file /etc/neutron/neutron_ovs.conf --config-file /etc/neutron/plugins/ml2/openvswitch_agent.ini
 - dhcp-agent
@@ -165,7 +184,7 @@ neutron-dhcp-agent --config-file /etc/neutron/neutron_dhcp.conf --config-file /e
 - l3-agent
 neutron-l3-agent --config-file /etc/neutron/neutron_l3.conf --config-file /etc/neutron/plugins/l3/l3_agent.ini
 
-* 使用CLI
+### 使用CLI
 neutron xxx
 - 命令选项会直接转换为REST请求参数
   --flag-name         -> 'flag_name':true
