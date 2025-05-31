@@ -1,7 +1,7 @@
 # 如何单独运行Neutron服务？
 
-Neutron是OpenStack的网络组件，可以作为软网元的控制器，实现一套完整的软SDN方案。
-有时出于学习的目的，需要将Neutron跑起来，从而学习Neutron的内部实现细节和软SDN的底层实现原理，但又不想部署整套OpenStack系统。怎么办？
+Neutron是OpenStack的网络组件，可以作为软网元的控制器，实现一套完整的软SDN方案。<br>
+有时出于学习的目的，需要将Neutron跑起来，从而学习Neutron的内部实现细节和软SDN的底层实现原理，但又不想部署整套OpenStack系统。怎么办？<br>
 Neutron本质上是一个微服务，只需要将其与其他微服务之间的依赖解耦开，即可单独运行和调试Neutron服务。
 
 ## 准备环境
@@ -24,12 +24,9 @@ Neutron本质上是一个微服务，只需要将其与其他微服务之间的�
 
 ## 代码适配修改
 
-将[patches](patches)目录的补丁文件依次应用到neutron/neutron-lib/neutron-fwaas/python-neutronclient源码上
-
-<br/>
+将[patches](patches)目录的补丁文件依次应用到neutron/neutron-lib/neutron-fwaas/python-neutronclient源码上<br>
 
 以neutron为例
-
 ```bash
 cd /opt/neutron
 git apply -p1 /opt/neutron-only/patches/neutron/*
