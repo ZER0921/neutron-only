@@ -9,7 +9,7 @@ Neutron本质上是一个微服务，只需要将其与其他微服务之间的�
 安装Ubuntu 22.04系统
 - python 3.10
 
-下载Train版本的如下neutron组件代码
+下载Train版本的如下neutron组件的代码
 - neutron: 15.3.4
 - neutron-lib: 1.29.2
 - neutron-fwaas: 15.0.1
@@ -24,8 +24,15 @@ Neutron本质上是一个微服务，只需要将其与其他微服务之间的�
 
 ## 代码适配修改
 
+将[patches](patches)目录的补丁文件依次应用到neutron/neutron-lib/neutron-fwaas/python-neutronclient源码上
+
+<br/>
+
+以neutron为例
+
 ```bash
-git apply -p1 /opt/neutron-only/patches/neutron-lib/*
+cd /opt/neutron
+git apply -p1 /opt/neutron-only/patches/neutron/*
 ```
 
 ### Noauth
