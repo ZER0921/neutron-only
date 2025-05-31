@@ -84,7 +84,7 @@ git apply -p1 /opt/neutron-only/patches/neutron/*
 - 支持noauth
 - 适配Python 3.10和SQLAlchemy 1.4
 - bugfix
-- 便于个人调试验证的feature
+- 调试验证feature
 - 配置文件
 - 辅助脚本
 
@@ -111,7 +111,7 @@ noauth认证场景以admin身份操作资源，因此创建资源接口必须显
 ./tools/generate_config_file_samples.sh
 ```
 
-## 安装
+## 安装服务
 
 ### Python虚拟环境
 
@@ -154,7 +154,7 @@ export OS_PROJECT_ID=<test-project-id>
 export OS_URL=http://127.0.0.1:9696/v2.0
 ```
 
-## 运行
+## 运行服务
 
 ### 配置文件
 
@@ -221,4 +221,55 @@ neutron-l3-agent --config-file /etc/neutron/neutron_l3.conf --config-file /etc/n
 neutron help
 neutron agent-list
 ```
+
+## 调试验证
+
+### 辅助脚本
+
+- neutron-appctl: 服务进程运行控制
+- neutron-curl: 针对neutron资源抽象的curl命令封装
+- neutron-ps: neutron相关进程ps
+- neutron-iface: "虚拟机网卡"接入网桥模拟
+- netns-run: 通过id在netns中运行命令
+- ovs-dump-flows: 更简洁的流表查询命令
+
+### Layer 2 Networking
+
+创建network和subnet
+
+```bash
+neutron net-create network1
+neutron subnet-create --name subnet1 --ip-version 4 network1 192.168.1.0/24
+```
+
+创建port并绑定到主机
+
+```bash
+PORT=port1
+NETWORK=network1
+VM_ID=$(uuidgen)
+HOST_ID=$(hostname)
+SECURITY=false
+neutron port-create --name $PORT --device-id $VM_ID --device-owner compute:nova --binding:host-id=$HOST_ID --port-security-enabled=$SECURITY $NETWORK
+```
+
+在OpenStack中，虚拟机网卡是由Nova添加到虚拟网桥上的，我们使用neutron-iface脚本来模拟这个行为
+
+```bash
+neutron-iface add vm1 <port-id> <port-mac>
+```
+
+确认port状态为ACTIVE，表示port上线成功
+
+```bash
+neutron port-show port1 -c status
+```
+
+### Layer 3 Networking
+
+TODO
+
+### Security
+
+TODO
 
