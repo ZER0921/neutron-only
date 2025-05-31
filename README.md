@@ -32,56 +32,34 @@ cd /opt/neutron
 git apply -p1 /opt/neutron-only/patches/neutron/*
 ```
 
+补丁修改内容主要包括
+- 支持noauth
+- 适配Python 3.10和SQLAlchemy 1.4
+- bugfix
+- 便于个人验证的feature
+- 辅助脚本
+
 ### Noauth
 API的token认证依赖于keystone服务，在仅包含neutron的场景下，需要配置noauth认证策略
 
 - neutron-server适配noauth
 
-```
-- noauth配置项
-''' neutron.conf
+在配置文件neutron.conf中指定noauth认证策略
+
+```conf
 auth_strategy = noauth
-
-- request_id适配noauth
-配置noauth认证时，API响应头中的request_id与后台日志中的request_id不一致，影响问题定位
-
-''' api-paste.ini
-[composite:neutronapi_v2_0]
-noauth = ... noauthcontext ...
-
-[filter:noauthcontext]
-paste.filter_factory = neutron.auth:NeutronNoauthContext.factory
-
-''' neutron/auth.py
-from oslo_middleware import request_id
-
-class NeutronNoauthContext(base.ConfigurableMiddleware):
-    """Make a request context for noauth."""
-
-    @webob.dec.wsgify
-    def __call__(self, req):
-        req_id = req.environ.get(request_id.ENV_REQUEST_ID)
-        ctx = context.get_admin_context_with_request_id(req_id)
-        req.environ['neutron.context'] = ctx
-
-        return self.application
-
-''' neutron_lib/context.py
-def get_admin_context_with_request_id(request_id):
-    return Context(user_id=None,
-                   tenant_id=None,
-                   is_admin=True,
-                   request_id=request_id,
-                   overwrite=False)
 ```
+request_id适配noauth：配置noauth认证时，API响应头中的request_id与后台日志中的request_id不一致，影响问题定位
 
 - neutronclient适配noauth
 neutronclient出于安全原因，默认禁止noauth认证策略
 
 - shell适配noauth
-noauth认证场景以admin身份操作资源。因此，创建资源接口必须显式指定project_id参数，表示资源的所有者
-export OS_PROJECT_ID=xxx
+noauth认证场景以admin身份操作资源，因此创建资源接口必须显式指定project_id参数，表示资源的所有者
 
+```bash
+export OS_PROJECT_ID=xxx
+```
 
 ## Standalone
 
