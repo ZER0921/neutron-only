@@ -11,15 +11,15 @@ Neutron本质上是一个微服务，只需要将其与其他微服务之间的�
 ### 部署视图
 
 - 控制节点
-neutron-server + mysql-server + rabbitmq-server
+  - neutron-server + mysql-server + rabbitmq-server
 
 - 计算节点
-neutron-openvswitch-agent (允许开启安全组) + openvswitch + conntrack
+  - neutron-openvswitch-agent (允许开启安全组) + openvswitch + conntrack
 
 - 网络节点
-neutron-openvswitch-agent (禁止开启安全组) + openvswitch + conntrack
-neutron-dhcp-agent + dnsmasq-base/dnsmasq-utils
-neutron-l3-agent + keepalived + haproxy + iputils-arping
+  - neutron-openvswitch-agent (禁止开启安全组) + openvswitch + conntrack
+  - neutron-dhcp-agent + dnsmasq-base/dnsmasq-utils
+  - neutron-l3-agent + keepalived + haproxy + iputils-arping
 
 ### 基础组件
 
@@ -93,10 +93,8 @@ git apply -p1 /opt/neutron-only/patches/neutron/*
 API的token认证依赖于keystone服务，在仅包含neutron的场景下，需要配置noauth认证策略
 
 - neutron-server适配noauth
-
-在配置文件neutron.conf中指定noauth认证策略
-
-request_id适配noauth：配置noauth认证时，API响应头中的request_id与后台日志中的request_id不一致，影响问题定位
+  - 在配置文件neutron.conf中指定noauth认证策略
+  - request_id适配noauth：配置noauth认证时，API响应头中的request_id与后台日志中的request_id不一致，影响问题定位
 
 - neutronclient适配noauth
 neutronclient出于安全原因，默认禁止noauth认证策略
@@ -116,9 +114,12 @@ bash tools/generate_config_file_samples.sh
 ## 安装
 
 * Python虚拟环境
+
+```bash
 cd /opt
 python -m venv app
 source app/bin/activate
+```
 
 * 依赖包
 pip install -r requirements.txt
