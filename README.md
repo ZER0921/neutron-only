@@ -6,23 +6,42 @@ Neutron本质上是一个微服务，只需要将其与其他微服务之间的�
 
 ## 准备环境
 
-安装Ubuntu 22.04系统
-- python 3.10
+本文使用的操作系统为Ubuntu 22.04，系统自带的Python版本为3.10
 
-下载Train版本的如下neutron组件的代码
+### 部署视图
+
+- 控制节点
+neutron-server + mysql-server + rabbitmq-server
+
+- 计算节点
+neutron-openvswitch-agent (允许开启安全组) + openvswitch + conntrack
+
+- 网络节点
+neutron-openvswitch-agent (禁止开启安全组) + openvswitch + conntrack
+neutron-dhcp-agent + dnsmasq-base/dnsmasq-utils
+neutron-l3-agent + keepalived + haproxy + iputils-arping
+
+> 在各个节点上安装并配置mysql-server/rabbitmq-server/openvswitch等组件
+
+## 代码适配修改
+
+### 下载代码
+
+下载如下版本的代码
 - neutron: 15.3.4
 - neutron-lib: 1.29.2
 - neutron-fwaas: 15.0.1
 - python-neutronclient: 6.14.1
+> 都是Train版本下的小版本
 
-以下假定相关的代码路径如下
+假定相关的代码路径如下
 - /opt/neutron-only/
 - /opt/neutron/
 - /opt/neutron-lib/
 - /opt/neutron-fwaas/
 - /opt/python-neutronclient/
 
-## 代码适配修改
+### 打补丁
 
 将[patches](patches)目录的补丁文件依次应用到neutron/neutron-lib/neutron-fwaas/python-neutronclient源码上<br>
 
@@ -88,16 +107,6 @@ bash tools/generate_config_file_samples.sh
 /etc/neutron/rootwrap.conf
 /etc/neutron/neutron_*.conf
 /etc/neutron/plugins/*/*_agent.ini
-
-* 部署视图
-- 控制节点
-neutron-server + mysql-server + rabbitmq-server
-- 计算节点
-neutron-openvswitch-agent (允许开启安全组) + openvswitch + conntrack
-- 网络节点
-neutron-openvswitch-agent (禁止开启安全组) + openvswitch + conntrack
-neutron-dhcp-agent + dnsmasq-base/dnsmasq-utils
-neutron-l3-agent + keepalived + haproxy + iputils-arping
 
 * 初始化操作
 ln -s /opt/src/neutron/etc/neutron /etc/neutron
